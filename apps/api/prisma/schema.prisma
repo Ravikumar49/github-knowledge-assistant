@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum IndexingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum Role {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  name         String?
+  createdAt    DateTime      @default(now())
+  repositories Repository[]
+  chatSessions ChatSession[]
+}
+
+model Repository {
+  id             String         @id @default(uuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  githubUrl      String
+  name           String
+  defaultBranch  String         @default("main")
+  lastCommitHash String?
+  status         IndexingStatus @default(PENDING)
+  errorMessage   String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  files          File[]
+  chatSessions   ChatSession[]
+
+  @@unique([userId, githubUrl])
+}
+
+model File {
+  id             String      @id @default(uuid())
+  repositoryId   String
+  repository     Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  path           String      
+  language       String      
+  contentHash    String      
+  fullContent    String
+  createdAt      DateTime    @default(now())
+
+  chunks         CodeChunk[]
+
+  @@unique([repositoryId, path])
+  @@index([repositoryId])
+}
+
+model CodeChunk {
+  id           String   @id @default(uuid())
+  fileId       String
+  file         File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  vectorId     String   @unique 
+  startLine    Int
+  endLine      Int
+  symbolName   String?  
+  symbolType   String?  
+  content      String
+  createdAt    DateTime @default(now())
+
+  @@index([fileId])
+}
+
+model ChatSession {
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repositoryId String
+  repository   Repository    @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  title        String        @default("New Conversation")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  messages     ChatMessage[]
+
+  @@index([userId, repositoryId])
+}
+
+model ChatMessage {
+  id            String      @id @default(uuid())
+  chatSessionId String
+  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+  role          Role
+  content       String
+  citations     Json?       
+  createdAt     DateTime    @default(now())
+
+  @@index([chatSessionId])
+}

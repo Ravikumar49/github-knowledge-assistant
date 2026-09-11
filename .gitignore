@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Environment variables (CRITICAL)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Next.js build output
+apps/web/.next/
+apps/web/out/
+apps/web/build/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

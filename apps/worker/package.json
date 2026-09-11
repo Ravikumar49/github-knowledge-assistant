@@ -1,0 +1,31 @@
+{
+  "name": "worker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsx watch src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@babel/parser": "^8.0.4",
+    "@babel/traverse": "^8.0.4",
+    "@google/genai": "^2.20.0",
+    "@qdrant/js-client-rest": "^1.19.0",
+    "bullmq": "^6.3.4",
+    "dotenv": "^17.4.2",
+    "ignore": "^7.0.8",
+    "ioredis": "^6.0.0",
+    "simple-git": "^3.36.0"
+  },
+  "devDependencies": {
+    "@types/babel__traverse": "^7.28.0",
+    "@types/node": "^26.4.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}
