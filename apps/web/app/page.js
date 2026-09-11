@@ -27,7 +27,7 @@ export default function ChatPage() {
     setQuestion(''); // Clear the input field for next question
 
     try {
-      const response = await fetch('http://localhost:4000/api/chat', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ githubUrl, messages: updatedHistory })
