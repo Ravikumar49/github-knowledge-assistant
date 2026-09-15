@@ -20,6 +20,8 @@ const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379'
 const qdrant = new QdrantClient({ url: process.env.QDRANT_URL || 'http://localhost:6333' });
 const git = simpleGit();
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Create the background worker listening to the 'indexingQueue'
 const indexingWorker = new Worker('indexingQueue', async (job) => {
     const { githubUrl } = job.data;
