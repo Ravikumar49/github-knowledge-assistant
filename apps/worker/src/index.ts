@@ -73,42 +73,60 @@ const indexingWorker = new Worker('indexingQueue', async (job) => {
         // Step 3: Embed each chunk using Gemini
         for (let i = 0; i < allChunks.length; i++) {
             const chunk = allChunks[i];
-            try {
-                const response = await ai.models.embedContent({
-                    model: 'gemini-embedding-2',
-                    contents: chunk.chunkContent,
-                    config: {
-                        outputDimensionality: 768
-                    }
-                });
-                
-                // Step 4: Prepare the payload for Qdrant
-                if (response.embeddings?.[0]?.values) {
-                    qdrantPoints.push({
-                        id: crypto.randomUUID(),
-                        vector: response.embeddings[0].values,
-                        payload: {
-                            repoUrl: githubUrl,
-                            filePath: chunk.filePath,
-                            startLine: chunk.startLine,
-                            endLine: chunk.endLine,
-                            content: chunk.chunkContent,
-                            type: chunk.type
+
+            let success = false;
+            let retries = 0;
+            const maxRetries = 5;
+            while(!success && retries < maxRetries) {
+                try {
+                    const response = await ai.models.embedContent({
+                        model: 'gemini-embedding-2',
+                        contents: chunk.chunkContent,
+                        config: {
+                            outputDimensionality: 768
                         }
                     });
-                }
-                
-                // Log progress to avoid an unresponsive terminal
-                if ((i + 1) % 50 === 0) {
-                    console.log(`[Job ${job.id}] Embedded ${i + 1}/${allChunks.length} chunks...`);
-                }
+                    
+                    // Step 4: Prepare the payload for Qdrant
+                    if (response.embeddings?.[0]?.values) {
+                        qdrantPoints.push({
+                            id: crypto.randomUUID(),
+                            vector: response.embeddings[0].values,
+                            payload: {
+                                repoUrl: githubUrl,
+                                filePath: chunk.filePath,
+                                startLine: chunk.startLine,
+                                endLine: chunk.endLine,
+                                content: chunk.chunkContent,
+                                type: chunk.type
+                            }
+                        });
+                    }
+                    
+                    // Log progress to avoid an unresponsive terminal
+                    if ((i + 1) % 50 === 0) {
+                        console.log(`[Job ${job.id}] Embedded ${i + 1}/${allChunks.length} chunks...`);
+                    }
 
-                
-                // Optional: Brief delay to respect free-tier Gemini API rate limits
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-            } catch (err) {
-                console.error(`[Job ${job.id}] Failed to embed ${chunk.filePath}:`, err);
+                    
+                    // Optional: Brief delay to respect free-tier Gemini API rate limits
+                    await sleep(500);
+
+                    success = true; // Mark successful to exit the while loop
+                    
+                } catch (err: any) {
+                    const isRateLimit = err?.status === 429 || err?.message?.includes('429');
+
+                    if(isRateLimit && retries < maxRetries - 1) {
+                        console.log(`[Job ${job.id}] Rate limit hit on chunk ${i+1}/${allChunks.length}. Sleeping for 15s... (Retry ${retries + 1}/${maxRetries})`);
+                        await sleep(15000);
+                        retries++;
+                    }
+                    else {
+                        console.error(`[Job ${job.id}] Failed to embed ${chunk.filePath}:`, err);
+                        throw err; // Throw the error to let BullMQ fail the job
+                    }
+                }
             }
         }
 
