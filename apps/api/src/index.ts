@@ -129,17 +129,34 @@ app.post('/api/chat', async (req, res) => {
         }
         
         // 4. Convert the user's question into a search vector
-        const queryEmbedding = await ai.models.embedContent({
-            model: 'gemini-embedding-2',
-            contents: latestQuestion,
-            config: { outputDimensionality: 768 }
-        });
-        
-        if (!queryEmbedding.embeddings || queryEmbedding.embeddings.length === 0) {
-            return res.status(500).json({ error: "Failed to generate embedding for question." });
+        let queryVector: number[];
+        try {
+            const queryEmbedding = await ai.models.embedContent({
+                model: 'gemini-embedding-2',
+                contents: latestQuestion,
+                config: { outputDimensionality: 768 }
+            });
+
+            if (!queryEmbedding.embeddings || queryEmbedding.embeddings.length === 0) {
+                throw new Error('No embeddings returned');
+            }
+            queryVector = queryEmbedding.embeddings[0].values!;
+        }
+        catch (error: any) {
+            console.error('Error generating query embedding:', error);
+
+            const isRateLimit = error?.status === 429 || error?.message?.includes('429');
+            const errorMessage = isRateLimit
+                ? 'Gemini API quota exceeded. Please wait a minute before asking another question.'
+                : 'Failed to generate embedding for your question.';
+
+            // Send error message through the open SSE stream and cleanly terminate
+            res.write(`data: ${JSON.stringify({ type: 'text', data: `\n\n⚠️ **Error:** ${errorMessage}\n\n` })}\n\n`);
+            res.write(`data: [DONE]\n\n`);
+            res.end();
+            return;
         }
         
-        const queryVector = queryEmbedding.embeddings[0].values;
 
         // 5. Search Qdrant for the most relevant code chunks from that specific repo
         const searchResponse = await qdrant.query('github_code_chunks', {
