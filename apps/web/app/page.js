@@ -180,7 +180,7 @@ export default function ChatPage() {
                     Retrieved Context Files
                   </span>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
-                    {sources.map((source, index) => {
+                    {Array.from(new Set(sources)).map((source, index) => {
                   // 1. Normalize Windows backslashes to forward slashes for the URL
                   const normalizedPath = source.replace(/\\/g, '/');
                   
