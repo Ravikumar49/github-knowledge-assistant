@@ -265,7 +265,7 @@ app.get('/api/commits/summary', async(req, res) => {
         const prompt = `You are a senior diagnostic AI agent. Analyze the following recent commits for the repository ${owner}/${repo}. Provide a brief, high-level summary of what the developers have been working on, and explicitly identify any commits that appear to be bug fixes, dependency updates, or security patches:\n\n${commitText}`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash', // Using the fast flash model for rapid analysis
+            model: 'gemini-3.6-flash', // Using the fast flash model for rapid analysis
             contents: prompt,
         });
 
