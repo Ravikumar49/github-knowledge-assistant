@@ -243,7 +243,42 @@ app.get('/api/commits', async (req, res) => {
         console.error(error);
         res.status(500).json({error: 'Failed to fetch commits from GitHub'});
     }
-})
+});
+
+app.get('api/commits/summary', async(req, res) => {
+    const { owner, repo } = req.query;
+
+    if(!owner || !repo) {
+        return res.status(400).json({ error: 'Missing owner or repo query parameters'});
+    }
+
+    try {
+        // 1. Fetch the 10 most recent commits using Octokit
+        const commits = await getRecentCommits(owner as string, repo as string, 10);
+
+        // 2. Format the JSON into a clean, readable text block
+        const commitText = commits
+            .map(c => `- ${c.author} on ${c.date}: ${c.message}`)
+            .join('\n');
+
+        // 3. Prompt Gemini to analyze the activity
+        const prompt = `You are a senior diagnostic AI agent. Analyze the following recent commits for the repository ${owner}/${repo}. Provide a brief, high-level summary of what the developers have been working on, and explicitly identify any commits that appear to be bug fixes, dependency updates, or security patches:\n\n${commitText}`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash', // Using the fast flash model for rapid analysis
+            contents: prompt,
+        });
+
+        // 4. Return the AI's analysis for the client
+        res.json({
+            repository: `$[owner]/${repo}`,
+            analysis: response.text
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to generate commit summary'});
+    }
+});
 
 app.listen(PORT, () => {
   console.log(`🚀 API Server running on http://localhost:${PORT}`);
