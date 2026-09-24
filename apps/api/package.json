@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.20.0",
+    "@octokit/rest": "^22.0.1",
     "@prisma/client": "^6.19.3",
     "@qdrant/js-client-rest": "^1.19.0",
     "bullmq": "^6.3.4",

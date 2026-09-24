@@ -4,8 +4,10 @@ import { QdrantClient } from '@qdrant/js-client-rest';
 import { GoogleGenAI } from '@google/genai';
 import { PrismaClient } from '@prisma/client';
 import { Queue, QueueEvents } from 'bullmq';
-import IORedis from 'ioredis';
+import { getRecentCommits } from './utils/github.js';
+import { Redis } from 'ioredis';
 import 'dotenv/config';
+import { error } from 'node:console';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -17,7 +19,7 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize the Redis connection for the queue
-const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
     maxRetriesPerRequest: null
 });
 
@@ -227,6 +229,21 @@ User Question: ${originalQuestion}`;
         }
     }
 });
+
+app.get('/api/commits', async (req, res) => {
+    const { owner, repo} = req.query;
+    if(!owner || !repo) {
+        return res.status(400).json({ error: 'Missing owner or repo query parameters'});
+    }
+
+    try {
+        const commits = await getRecentCommits(owner as string, repo as string);
+        res.json(commits);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({error: 'Failed to fetch commits from GitHub'});
+    }
+})
 
 app.listen(PORT, () => {
   console.log(`🚀 API Server running on http://localhost:${PORT}`);
