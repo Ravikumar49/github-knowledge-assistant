@@ -245,7 +245,7 @@ app.get('/api/commits', async (req, res) => {
     }
 });
 
-app.get('api/commits/summary', async(req, res) => {
+app.get('/api/commits/summary', async(req, res) => {
     const { owner, repo } = req.query;
 
     if(!owner || !repo) {
