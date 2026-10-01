@@ -30,3 +30,31 @@ export async function getRecentCommits(owner: string, repo: string, limit: numbe
     throw error;
   }
 }
+
+export async function getRepositoryTree(owner: string, repo: string) {
+  const { data } = await github.rest.git.getTree({
+    owner,
+    repo,
+    tree_sha: 'HEAD',
+    recursive: '1',  // Fetch the entire tree recursively
+  });
+
+  // Filter out directories and return only files
+  const validFiles = (data.tree || []).filter((item: any) => {
+    // We only want files contents ('blob'), not directories
+    if(item.type !== 'blob' || !item.path) return false;
+
+    const ignoreList = [
+      'node_modules', 'dist/', 'build/',
+      '.png', '.jpg', '.ico', '.svg', '.mp4',
+      'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', '.map'
+    ];
+
+    return !ignoreList.some(ignoreItem => item.path?.includes(ignoreItem));
+  });
+
+  // Return a clean array of the relevant file paths
+  return validFiles.map((file: any) => ({ 
+    path: file.path, sha: file.sha
+  }));
+}

@@ -4,7 +4,7 @@ import { QdrantClient } from '@qdrant/js-client-rest';
 import { GoogleGenAI } from '@google/genai';
 import { PrismaClient } from '@prisma/client';
 import { Queue, QueueEvents } from 'bullmq';
-import { getRecentCommits } from './utils/github.js';
+import { getRecentCommits, getRepositoryTree } from './utils/github.js';
 import { Redis } from 'ioredis';
 import 'dotenv/config';
 import { error } from 'node:console';
@@ -271,12 +271,41 @@ app.get('/api/commits/summary', async(req, res) => {
 
         // 4. Return the AI's analysis for the client
         res.json({
-            repository: `$[owner]/${repo}`,
+            repository: `${owner}/${repo}`,
             analysis: response.text
         });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Failed to generate commit summary'});
+    }
+});
+
+app.post('/api/repos/index', async (req, res) => {
+    try {
+        // 1. Extract the repository details from the POST body
+        const {owner, repo} = req.body;
+        if(!owner || !repo) {
+            return res.status(400).json({ error: 'Missing owner or repo in request body'});
+        }
+
+        // 2. Fetch the recursive file tree using Octokit
+        const files = await getRepositoryTree(owner, repo);
+
+        // Print to EC2 terminal so we can verify the filter is working
+        console.log(`Discovered ${files.length} relevant files in ${owner}/${repo}:`);
+
+        // 3. Filter the tree for relevant files (e.g., .ts, .js, .py, .java, etc.) and fetch their content
+
+        // 4. Send the filtered list to BullMQ worker to be processed in the background
+        // await indexingQueue.add('index-repo', { owner, repo });
+
+        res.status(202).json({ 
+            message: `Indexing job started for ${owner}/${repo}`,
+            fileCount: files.length
+        });
+    } catch (error) {
+        console.error('Indexing error:', error);
+        res.status(500).json({ error: 'Failed to start repository indexing'});
     }
 });
 
