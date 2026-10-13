@@ -30,7 +30,7 @@ export default function ChatPage() {
     setCommitSummary('');  // Clear previous summary
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/commit-summary?owner=${owner}&repo=${repo}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/commits/summary?owner=${owner}&repo=${repo}`);
       if (!response.ok) {
         throw new Error('Failed to fetch commit summary.');
       }
