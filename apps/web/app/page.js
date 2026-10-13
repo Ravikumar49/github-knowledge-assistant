@@ -10,6 +10,40 @@ export default function ChatPage() {
   const [sources, setSources] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
+  const [commitSummary, setCommitSummary] = useState('');
+  const [isFetchingSummary, setIsFetchingSummary] = useState(false);
+
+  const fetchCommitSummary = async () => {
+    if (!githubUrl) return;
+
+    // Extract owner and repo from a URL like https://github.com/owner/repo
+    const urlParts = githubUrl.replace('.git').split('/');
+    const repo = urlParts.pop();
+    const owner = urlParts.pop();
+
+    if( !owner || !repo ) {
+      setCommitSummary('Invalid GitHub repository URL.');
+      return;
+    }
+
+    setIsFetchingSummary(true);
+    setCommitSummary('');  // Clear previous summary
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/commit-summary?owner=${owner}&repo=${repo}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch commit summary.');
+      }
+
+      const data = await response.json();
+      setCommitSummary(data.analysis);
+    } catch (error) {
+      console.error(error);
+      setCommitSummary('Error fetching commit summary.');
+    } finally {
+      setIsFetchingSummary(false);
+    }
+  }
 
   const handleAskQuestion = async (e) => {
     e.preventDefault();
@@ -95,24 +129,53 @@ export default function ChatPage() {
       </header>
 
       <form onSubmit={handleAskQuestion} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        
+        {/* Target Repository Input + Summarize Button */}
         <div>
           <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '4px', color: '#aaa' }}>Target Repository</label>
-          <input 
-            type="text" 
-            value={githubUrl}
-            onChange={(e) => setGithubUrl(e.target.value)}
-            placeholder="https://github.com/org/repo"
-            style={{ 
-              width: '100%', 
-              padding: '10px 12px', 
-              borderRadius: '6px', 
-              border: '1px solid #333', 
-              backgroundColor: '#161616', 
-              color: '#fff',
-              boxSizing: 'border-box'
-            }}
-          />
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input 
+              type="text" 
+              value={githubUrl}
+              onChange={(e) => setGithubUrl(e.target.value)}
+              placeholder="https://github.com/org/repo"
+              style={{ 
+                flex: 1, 
+                padding: '10px 12px', 
+                borderRadius: '6px', 
+                border: '1px solid #333', 
+                backgroundColor: '#161616', 
+                color: '#fff',
+                boxSizing: 'border-box'
+              }}
+            />
+            <button 
+              type="button" // CRITICAL: prevents triggering the form submit
+              onClick={fetchCommitSummary}
+              disabled={isFetchingSummary || !githubUrl}
+              style={{
+                padding: '10px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: isFetchingSummary ? '#444' : '#16a34a',
+                color: '#fff',
+                fontWeight: '600',
+                cursor: isFetchingSummary ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {isFetchingSummary ? 'Analyzing...' : 'Summarize Activity'}
+            </button>
+          </div>
         </div>
+
+        {/* Commit Summary Display Block */}
+        {commitSummary && (
+          <div style={{ padding: '16px', border: '1px solid #2a2a2a', borderRadius: '6px', backgroundColor: '#111', color: '#e5e5e5', fontSize: '0.9rem', lineHeight: '1.6' }}>
+            <h3 style={{ fontSize: '1rem', marginTop: 0, marginBottom: '12px', color: '#fff' }}>Recent Repository Activity</h3>
+            <div style={{ whiteSpace: 'pre-wrap' }}>{commitSummary}</div>
+          </div>
+        )}
 
         <div>
           <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '4px', color: '#aaa' }}>Your Question</label>
@@ -151,6 +214,7 @@ export default function ChatPage() {
         </button>
       </form>
 
+      {/* Answer & Sources blocks */}
       {answer && (
         <article style={{ marginTop: '32px', padding: '24px', border: '1px solid #2a2a2a', borderRadius: '8px', backgroundColor: '#111' }}>
           <h2 style={{ fontSize: '1.25rem', marginTop: 0, marginBottom: '16px', borderBottom: '1px solid #2a2a2a', paddingBottom: '8px' }}>
@@ -181,10 +245,7 @@ export default function ChatPage() {
                   </span>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
                     {Array.from(new Set(sources)).map((source, index) => {
-                  // 1. Normalize Windows backslashes to forward slashes for the URL
                   const normalizedPath = source.replace(/\\/g, '/');
-                  
-                  // 2. Construct the GitHub link to the file
                   const githubLink = `${githubUrl}/blob/main/${normalizedPath}`;
 
                   return (
@@ -198,8 +259,8 @@ export default function ChatPage() {
                         marginRight: '8px',
                         marginBottom: '8px',
                         padding: '4px 12px',
-                        backgroundColor: '#1e293b', // Matches your dark theme
-                        color: '#60a5fa', // Blue link color
+                        backgroundColor: '#1e293b', 
+                        color: '#60a5fa',
                         borderRadius: '9999px',
                         fontSize: '0.85rem',
                         textDecoration: 'none',
