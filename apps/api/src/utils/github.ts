@@ -31,6 +31,37 @@ export async function getRecentCommits(owner: string, repo: string, limit: numbe
   }
 }
 
+export const getRecentIssuesAndPRs = async (owner: string, repo: string, limit: number=10) => {
+  // GitHub's /issues endpoint returns both issues and PRs
+  const url = `https://api.github.com/repos/${owner}/${repo}/issues?state=all&per_page=${limit}`;
+
+  const headers: Record<string, string> = {
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'github-knowledge-assistant'
+  };
+
+  if (process.env.GITHUB_ACCESS_TOKEN) {
+    headers['Authorization'] = `token ${process.env.GITHUB_ACCESS_TOKEN}`;
+  }
+
+  const response = await fetch(url, { headers });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch issues and PRs: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+
+  return data.map((item: any) => ({
+      type: item.pull_request ? 'pull_request' : 'issue',
+      number: item.number,
+      title: item.title,
+      state: item.state,
+      author: item.user?.login,
+      url: item.html_url
+  }));
+}
+
 export async function getRepositoryTree(owner: string, repo: string) {
   const { data } = await github.rest.git.getTree({
     owner,

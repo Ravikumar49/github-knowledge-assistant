@@ -7,6 +7,7 @@ import { Queue, QueueEvents } from 'bullmq';
 import { getRecentCommits, getRepositoryTree } from './utils/github.js';
 import { Redis } from 'ioredis';
 import 'dotenv/config';
+import { getRecentIssuesAndPRs } from './utils/github.js';
 import { error } from 'node:console';
 
 const app = express();
@@ -298,6 +299,47 @@ app.post('/api/repos/index', async (req, res) => {
     } catch (error) {
         console.error('Indexing error:', error);
         res.status(500).json({ error: 'Failed to start repository indexing'});
+    }
+});
+
+app.get('/api/issues/summary', async (req, res) => {
+    const { owner, repo } = req.query;
+    
+    if (!owner || !repo) {
+        return res.status(400).json({ error: 'Missing owner or repo query parameters' });
+    }
+
+    try {
+        // 1. Fetch the 15 most recent issues and PRs
+        const issuesAndPRs = await getRecentIssuesAndPRs(owner as string, repo as string, 15);
+
+        // 2. Format the JSON into a clean text block for the prompt
+        const activityText = issuesAndPRs
+            .map((item: any) => `[${item.type} #${item.number}] ${item.state.toUpperCase()}: "${item.title}" by ${item.author}`)
+            .join('\n');
+
+        // 3. Prompt Gemini to analyze the activity
+        const prompt = `You are a senior diagnostic AI agent analyzing recent activity for the repository ${owner}/${repo}. 
+Provide a high-level summary of the current focus based on these recent issues and pull requests. 
+Categorize the activity into bullet points (e.g., Bug Reports, Feature Requests, Discussion Handoffs, or Maintainer Playbook updates).
+
+Recent Activity:
+${activityText}`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash', // Using the fast flash model for rapid analysis
+            contents: prompt,
+        });
+
+        // 4. Return the AI's analysis for the client
+        res.json({
+            repository: `${owner}/${repo}`,
+            analysis: response.text
+        });
+    }
+    catch (error) {
+        console.error('Error generating issues/PRs summary:', error);
+        res.status(500).json({ error: 'Failed to generate issues/PRs summary' });
     }
 });
 
